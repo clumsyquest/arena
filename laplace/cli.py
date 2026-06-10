@@ -319,6 +319,102 @@ def cmd_adjust(args):
           f"{DIM}({args.reason or 'sans motif'}) — appliqué à tous les cerveaux dès maintenant.{RESET}")
 
 
+def cmd_seal(args):
+    import csv
+    import os
+
+    from laplace.data import fixtures
+
+    oracle = _oracle(engine="v2")
+    day = args.date or str(_date.today())
+    fx = fixtures(start=day, end=day)
+    if fx.empty:
+        print(f"{YELLOW}Aucun match à sceller le {day}.{RESET}")
+        return
+    os.makedirs("prophecies", exist_ok=True)
+    path = f"prophecies/SEAL_{day}.csv"
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["date", "team_a", "team_b", "p1", "pn", "p2", "pick"])
+        for row in fx.itertuples():
+            h = 0 if row.neutral else 1
+            p = oracle.match(row.home_team, row.away_team, h)
+            pr = [p["p_win"], p["p_draw"], p["p_loss"]]
+            pick = ["1", "N", "2"][max(range(3), key=lambda i: pr[i])]
+            w.writerow([day, p["team_a"], p["team_b"],
+                        f"{pr[0]:.4f}", f"{pr[1]:.4f}", f"{pr[2]:.4f}", pick])
+    print(f"{GREEN}🔏 Scellé : {path} — grave-le : git add prophecies && git commit{RESET}")
+
+
+def cmd_verdict(args):
+    import csv
+    import glob
+
+    import numpy as np
+
+    from laplace.data import played
+    from laplace.predict import resolve
+
+    df = played()
+    wc = df[(df["tournament"] == "FIFA World Cup") & (df["date"] >= np.datetime64("2026-06-01"))]
+    results = {}
+    for r in wc.itertuples():
+        results[(r.home_team, r.away_team)] = (int(r.home_score), int(r.away_score))
+    known = set(df["home_team"]) | set(df["away_team"])
+
+    print(BANNER)
+    print(f"\n{BOLD}   LE VERDICT — chaque système jugé par le réel{RESET}\n")
+    files = sorted(glob.glob("prophecies/SEAL_*.csv")) + sorted(glob.glob("prophecies/challenger_*.csv"))
+    if not files:
+        print(f"   {DIM}Aucun sceau trouvé dans prophecies/.{RESET}")
+        return
+    systems = {}
+    for path in files:
+        name = "🔮 DÉMON" if "SEAL_" in path else "⚔️  " + path.split("challenger_")[1].rsplit(".", 1)[0]
+        with open(path) as f:
+            for row in csv.DictReader(f):
+                systems.setdefault(name, []).append(row)
+
+    for name, rows in systems.items():
+        scored, pending, hits, lls = 0, 0, 0, []
+        for row in rows:
+            try:
+                a = resolve(row["team_a"].strip(), known)
+                b = resolve(row["team_b"].strip(), known)
+            except ValueError:
+                continue
+            res = results.get((a, b)) or tuple(reversed(results.get((b, a), ()))) or None
+            if not res:
+                pending += 1
+                continue
+            y = 0 if res[0] > res[1] else (1 if res[0] == res[1] else 2)
+            scored += 1
+            probs = None
+            if row.get("p1") and row.get("pn") and row.get("p2"):
+                try:
+                    probs = [float(row["p1"]), float(row["pn"]), float(row["p2"])]
+                except ValueError:
+                    probs = None
+            if probs:
+                s = sum(probs)
+                probs = [p / s for p in probs]
+                lls.append(-np.log(max(probs[y], 1e-12)))
+                pick = max(range(3), key=lambda i: probs[i])
+            else:
+                pick = {"1": 0, "N": 1, "n": 1, "X": 1, "2": 2}.get(str(row.get("pick", "")).strip(), None)
+                if pick is None:
+                    pick = 0 if str(row.get("pick", "")).strip() == row["team_a"].strip() else 2
+            hits += int(pick == y)
+        line = f"   {BOLD}{name:<18}{RESET} {scored} jugés · {pending} en attente"
+        if scored:
+            line += f" · précision {BOLD}{100 * hits / scored:.1f}%{RESET}"
+            if lls:
+                line += f" · log-loss {BOLD}{float(np.mean(lls)):.4f}{RESET}"
+        print(line)
+    print(f"\n   {DIM}Inscrire un concurrent : prophecies/challenger_NOM.csv")
+    print(f"   colonnes : date,team_a,team_b,p1,pn,p2,pick (probas ou pick seul){RESET}\n")
+
+
 def cmd_proof(args):
     from laplace.ensemble import optimise_weights, proof
 
@@ -383,6 +479,13 @@ def main(argv=None):
 
     p = sub.add_parser("proof", help="le duel des cerveaux sur 9 tournois (LOO)")
     p.set_defaults(fn=cmd_proof)
+
+    p = sub.add_parser("seal", help="sceller les prophéties du jour (CSV horodaté git)")
+    p.add_argument("--date", help="AAAA-MM-JJ (défaut : aujourd'hui)")
+    p.set_defaults(fn=cmd_seal)
+
+    p = sub.add_parser("verdict", help="le réel juge tous les systèmes scellés")
+    p.set_defaults(fn=cmd_verdict)
 
     p = sub.add_parser("market", help="voleur de cerveaux : démon vs cotes du marché")
     p.add_argument("--threshold", type=float, default=0.08, help="seuil de faille")
