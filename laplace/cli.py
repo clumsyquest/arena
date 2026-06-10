@@ -265,6 +265,32 @@ def cmd_backtest(args):
         )
 
 
+def cmd_adjust(args):
+    from laplace import scout
+
+    if args.list:
+        adj = scout.load()
+        if not adj:
+            print(f"{DIM}Aucun ajustement d'éclaireur actif.{RESET}")
+        for t, info in adj.items():
+            print(f"   {flag(t)} {t:<22} {info['delta']:+.0f} Elo  {DIM}{info.get('reason', '')}{RESET}")
+        return
+    if args.clear:
+        scout.clear(None if args.clear == "all" else args.clear)
+        print(f"{GREEN}✓{RESET} Ajustements effacés.")
+        return
+    if args.team is None or args.delta is None:
+        print(f"{RED}✗ usage : laplace adjust ÉQUIPE ±DELTA [--reason \"...\"]{RESET}")
+        return
+    from laplace.predict import resolve
+
+    oracle = _oracle(verbose=False, engine="v1")
+    team = resolve(args.team, oracle.ratings)
+    scout.set_adjustment(team, args.delta, args.reason or "")
+    print(f"{GREEN}✓{RESET} {flag(team)} {team} : {args.delta:+.0f} Elo "
+          f"{DIM}({args.reason or 'sans motif'}) — appliqué à tous les cerveaux dès maintenant.{RESET}")
+
+
 def cmd_proof(args):
     from laplace.ensemble import optimise_weights, proof
 
@@ -329,6 +355,14 @@ def main(argv=None):
 
     p = sub.add_parser("proof", help="le duel des cerveaux sur 9 tournois (LOO)")
     p.set_defaults(fn=cmd_proof)
+
+    p = sub.add_parser("adjust", help="éclaireur : injecter une info terrain (blessure...)")
+    p.add_argument("team", nargs="?")
+    p.add_argument("delta", nargs="?", type=float, help="points d'Elo, ex: -40")
+    p.add_argument("--reason", help="motif (ex: 'Mbappé forfait')")
+    p.add_argument("--list", action="store_true", help="voir les ajustements actifs")
+    p.add_argument("--clear", help="effacer une équipe, ou 'all'")
+    p.set_defaults(fn=cmd_adjust)
 
     p = sub.add_parser("backtest", help="prouver la puissance sur 2014/2018/2022")
     p.add_argument("--cup", type=int, choices=[2014, 2018, 2022], default=None)

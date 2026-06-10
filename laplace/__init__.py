@@ -18,5 +18,9 @@ def build_oracle(as_of=None, verbose=False):
     """Assemble le démon complet : données -> Elo -> modèle de buts -> Oracle."""
     df = played(before=as_of)
     ratings, pre_home, pre_away = compute_elo(df, return_history=True)
+    if as_of is None:  # les ajustements de l'éclaireur ne valent que pour le présent
+        from laplace.scout import apply_to_ratings
+
+        apply_to_ratings(ratings)
     model = fit_goal_model(df, pre_home, pre_away, verbose=verbose)
     return Oracle(ratings, model)

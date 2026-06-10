@@ -95,6 +95,11 @@ def build_brains(as_of=None, verbose=False):
     historien = _EloBrain(build_oracle(as_of=as_of, verbose=verbose))
     anatomiste = fit_teamdc(df, half_life=4.0, window_years=12.0, verbose=verbose)
     fievreux = fit_teamdc(df, half_life=1.25, window_years=5.0, verbose=verbose)
+    if as_of is None:
+        from laplace.scout import apply_to_teamdc
+
+        apply_to_teamdc(anatomiste)
+        apply_to_teamdc(fievreux)
     return [historien, anatomiste, fievreux], historien.oracle.ratings
 
 
