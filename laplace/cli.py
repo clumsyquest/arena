@@ -286,7 +286,7 @@ def cmd_market(args):
         a, b = r["home"], r["away"]
         pd_, pm, pf = r["p_demon"], r["p_market"], r["p_fused"]
         mark = f" {MAGENTA}{BOLD}⚡ FAILLE ({r['gap']:+.0%} sur {r['gap_on']}){RESET}" if r["is_edge"] else ""
-        print(f"   {flag(a)} {a} – {flag(b)} {b}  {DIM}({r['n_bookmakers']} bookmakers){RESET}{mark}")
+        print(f"   {flag(a)} {a} – {flag(b)} {b}  {DIM}({r['sources']}){RESET}{mark}")
         print(f"     démon  {pd_[0]:5.0%} {pd_[1]:5.0%} {pd_[2]:5.0%}   "
               f"marché {pm[0]:5.0%} {pm[1]:5.0%} {pm[2]:5.0%}   "
               f"{BOLD}fusion {pf[0]:5.0%} {pf[1]:5.0%} {pf[2]:5.0%}{RESET}")

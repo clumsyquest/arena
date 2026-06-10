@@ -43,6 +43,8 @@ python -m laplace simulate            # la prophétie complète (20 000 univers)
 | `python -m laplace groups` | Le destin des 12 groupes (P 1er, P 2e, P qualifié) |
 | `python -m laplace ratings --top 30` | Le classement Elo mondial recalculé depuis 1872 |
 | `python -m laplace backtest` | Le serment d'honnêteté : le démon jugé sur 2014, 2018, 2022 |
+| `python -m laplace market` | Le Voleur de Cerveaux : démon vs cotes du marché, failles signalées (gratuit, sans clé — réseau requis) |
+| `python -m laplace adjust France -40 --reason "blessure"` | L'Éclaireur : injecter une info terrain dans tous les cerveaux |
 | `python -m laplace update` | Recharge les données fraîches (résultats de la veille inclus) |
 
 ### Le rituel quotidien pendant la Coupe du Monde
