@@ -54,35 +54,59 @@ python -m laplace update && python -m laplace today
 Les résultats de la veille sont intégrés, le classement Elo bouge, les
 prophéties du soir tombent.
 
+## LA TRANSCENDANCE (v2) ⚡
+
+Le démon v1 a été soumis à l'épreuve du feu : **9 tournois majeurs (2010→2026,
+473 matchs) rejoués en marche avant stricte**, et cinq voies d'évolution
+testées en leave-one-out. Les données ont tranché :
+
+| Candidat | Verdict | Log-loss (473 matchs) |
+|---|---|---|
+| L'Historien (Elo→Dixon-Coles, v1) | ✅ colonne vertébrale | 0.9372 |
+| **Le mode VIVANT** (Elo mis à jour match après match, même en plein tournoi) | ✅ **adopté : gagne sur 7/9 tournois, zéro paramètre** | **0.9341** |
+| L'Anatomiste (attaque/défense par équipe, demi-vie 4 ans) | ✅ 15% de la fusion (robustesse sur les éditions chaotiques : CDM 2022, Euro 2024) | 0.9572 seul |
+| Le Fiévreux (forme récente, demi-vie 15 mois) | ❌ écarté par les données | 0.9727 |
+| Le Juge (verdict direct W/N/L) | ❌ exécuté | 1.0168 |
+| Calibrations température / boost de nuls | ❌ ne transfèrent pas en LOO | — |
+
+Le moteur v2 = **fusion log-linéaire Historien 85% + Anatomiste 15%, en mode
+vivant**, et le simulateur **grave les résultats réels** au fur et à mesure du
+tournoi : chaque matin, la prophétie est re-calculée conditionnée à tout ce qui
+s'est réellement passé. (`--engine v1` reste disponible ; `python -m laplace
+proof` rejoue le duel des cerveaux.)
+
 ## Le serment d'honnêteté 🗡️
 
 Un vrai démon ne triche pas : on le renvoie dans le passé, il n'a le droit de
 voir **que** les matchs antérieurs à chaque tournoi, puis il prédit tout.
 
-| Coupe du Monde | Log-loss (démon) | Hasard uniforme | Bon pronostic | Champion réel (rang Elo pré-tournoi) |
-|---|---|---|---|---|
-| 2014 | **0.943** | 1.099 | 59.4% | Allemagne (n°3) |
-| 2018 | **0.977** | 1.099 | 51.6% | France (n°5) |
-| 2022 | **1.056** | 1.099 | 54.7% | Argentine (n°2) |
+| Coupe du Monde | Log-loss (vivant) | Log-loss (figé) | Hasard | Bon pronostic | Champion réel (rang Elo pré-tournoi) |
+|---|---|---|---|---|---|
+| 2014 | **0.905** | 0.943 | 1.099 | 60.9% | Allemagne (n°3) |
+| 2018 | **0.971** | 0.977 | 1.099 | 56.2% | France (n°5) |
+| 2022 | **1.080** | 1.056 | 1.099 | 54.7% | Argentine (n°2) |
 
 Sur les trois dernières éditions, le champion réel figurait **toujours dans son
 top 5 pré-tournoi**. (Pour situer : les bookmakers tournent autour de 0.95–1.05
 de log-loss sur ces tournois. 2022 reste l'édition la plus folle de l'histoire.)
 
-## La prophétie du 10 juin 2026 (veille du match d'ouverture)
+## La prophétie du 10 juin 2026 (veille du match d'ouverture, moteur v2)
 
 50 000 univers simulés :
 
 | # | Équipe | 🏆 Titre | Finale | Demies |
 |---|---|---|---|---|
-| 🥇 | 🇪🇸 Espagne | **25.0%** | 36.6% | 49.1% |
-| 🥈 | 🇦🇷 Argentine | **19.1%** | 30.1% | 42.5% |
-| 🥉 | 🇫🇷 France | **10.2%** | 18.2% | 33.2% |
-| 4 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angleterre | 6.3% | 12.7% | 23.3% |
-| 5 | 🇧🇷 Brésil | 5.2% | 10.5% | 22.0% |
-| 6 | 🇨🇴 Colombie | 4.7% | 10.0% | 18.2% |
-| 7 | 🇵🇹 Portugal | 3.6% | 8.2% | 15.7% |
-| 8 | 🇪🇨 Équateur | 3.4% | 7.7% | 17.7% |
+| 🥇 | 🇪🇸 Espagne | **22.9%** | 34.0% | 46.9% |
+| 🥈 | 🇦🇷 Argentine | **18.4%** | 28.9% | 41.3% |
+| 🥉 | 🇫🇷 France | **9.7%** | 17.5% | 31.4% |
+| 4 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angleterre | 6.4% | 12.6% | 22.9% |
+| 5 | 🇧🇷 Brésil | 6.2% | 12.1% | 23.4% |
+| 6 | 🇨🇴 Colombie | 4.8% | 9.9% | 18.3% |
+| 7 | 🇵🇹 Portugal | 3.9% | 8.3% | 16.0% |
+| 8 | 🇪🇨 Équateur | 3.1% | 7.1% | 16.2% |
+
+**Finale la plus probable** : Argentine – Espagne (8.7% des univers).
+**Outsider du démon** : le Mexique (Elo n°13, mais 16.4% de demi-finale à domicile).
 
 ## Sous le capot
 
@@ -99,6 +123,9 @@ de log-loss sur ces tournois. 2022 reste l'édition la plus folle de l'histoire.
 
 ## Superpouvoirs à venir
 
+- [x] ~~**Le démon vivant**~~ : Elo mis à jour match après match, prophéties
+      conditionnées aux résultats réels (v2)
+- [x] ~~**Les cerveaux multiples**~~ : fusion Historien + Anatomiste (v2)
 - [ ] **L'agent éclaireur** : lecture des news (blessés, compos) pour ajuster
       les ratings la veille des matchs
 - [ ] **Le vol de cerveau des bookmakers** : calibration sur les cotes du marché

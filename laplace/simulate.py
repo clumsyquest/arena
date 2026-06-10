@@ -16,13 +16,13 @@ import pandas as pd
 from laplace.worldcup import (
     FINAL,
     GROUPS,
+    HOSTS,
     KO_VENUE_COUNTRY,
     QUARTERS,
     ROUND_OF_16,
     ROUND_OF_32,
     SEMIS,
     TEAM_GROUP,
-    group_fixtures,
     home_ind_for,
 )
 
@@ -31,41 +31,60 @@ MAX_G_ET = 5   # grille pour la prolongation
 
 
 class Simulator:
-    def __init__(self, oracle, seed=None):
+    def __init__(self, oracle, seed=None, condition_on_reality=True):
         self.oracle = oracle
         self.rng = random.Random(seed)
         self._cum90 = {}
         self._cum_et = {}
-        # Matchs de groupes réels (avantage du terrain des hôtes inclus).
-        self.group_games = {g: [] for g in GROUPS}
-        for fx in group_fixtures():
-            self.group_games[fx["group"]].append((fx["team_a"], fx["team_b"], fx["home_ind"]))
-        for g, games in self.group_games.items():
-            if len(games) != 6:  # filet de sécurité : round-robin théorique
-                teams = GROUPS[g]
-                self.group_games[g] = [
-                    (teams[i], teams[j], 0)
-                    for i in range(4)
-                    for j in range(i + 1, 4)
-                ]
+        # Round-robin de chaque groupe ; les hôtes jouent toujours chez eux
+        # (le calendrier réel place chacun de leurs matchs dans leur pays).
+        self.group_games = {
+            g: [
+                (teams[i], teams[j],
+                 1 if teams[i] in HOSTS else (-1 if teams[j] in HOSTS else 0))
+                for i in range(4)
+                for j in range(i + 1, 4)
+            ]
+            for g, teams in GROUPS.items()
+        }
+        # Le démon vivant : les matchs déjà joués sont gravés, on ne simule
+        # que le futur restant.
+        self.fixed = {}
+        if condition_on_reality:
+            from laplace.data import played
+
+            df = played()
+            wc = df[
+                (df["tournament"] == "FIFA World Cup")
+                & (df["date"] >= np.datetime64("2026-06-01"))
+            ]
+            for row in wc.itertuples():
+                self.fixed[(row.home_team, row.away_team)] = (
+                    int(row.home_score),
+                    int(row.away_score),
+                )
+
+    def _actual(self, a, b):
+        if (a, b) in self.fixed:
+            return self.fixed[(a, b)]
+        if (b, a) in self.fixed:
+            gb, ga = self.fixed[(b, a)]
+            return (ga, gb)
+        return None
 
     # ---------- échantillonnage des scores ----------
 
     def _dist90(self, a, b, h):
         key = (a, b, h)
         if key not in self._cum90:
-            m = self.oracle.model.score_matrix(
-                self.oracle.ratings[a], self.oracle.ratings[b], h, MAX_G_90
-            )
+            m = self.oracle.score_matrix(a, b, h, MAX_G_90)
             self._cum90[key] = np.cumsum(m.ravel())
         return self._cum90[key]
 
     def _dist_et(self, a, b, h):
         key = (a, b, h)
         if key not in self._cum_et:
-            la, lb = self.oracle.model.lambdas(
-                self.oracle.ratings[a], self.oracle.ratings[b], h
-            )
+            la, lb = self.oracle.lambdas(a, b, h)
             la, lb = la / 3.0, lb / 3.0  # 30 minutes de jeu
             gx = np.arange(MAX_G_ET + 1)
             fact = np.array([1, 1, 2, 6, 24, 120], dtype=float)
@@ -178,12 +197,14 @@ class Simulator:
         teams = list(TEAM_GROUP)
         # compteurs : [R32, R16, QF, SF, Finale, Champion, 1er de groupe, points, 2e de groupe]
         counts = {t: np.zeros(9) for t in teams}
+        finals = {}  # affiche de finale -> occurrences
 
         for sim in range(n):
             seeds, thirds = {}, {}
             for g in GROUPS:
                 res = {
-                    (a, b): self.play90(a, b, h) for a, b, h in self.group_games[g]
+                    (a, b): self._actual(a, b) or self.play90(a, b, h)
+                    for a, b, h in self.group_games[g]
                 }
                 order, stats = self._rank_group(g, res)
                 seeds["1" + g] = order[0]
@@ -223,6 +244,8 @@ class Simulator:
             a, b = winners[ma], winners[mb]
             counts[a][4] += 1
             counts[b][4] += 1
+            pair = tuple(sorted((a, b)))
+            finals[pair] = finals.get(pair, 0) + 1
             h = home_ind_for(a, b, KO_VENUE_COUNTRY[no])
             champ, _ = self.play_knockout(a, b, h)
             counts[champ][5] += 1
@@ -248,4 +271,7 @@ class Simulator:
                 "exp_pts": c[7] / n,
             })
         df = pd.DataFrame(rows).sort_values("p_champion", ascending=False)
+        self.finals = sorted(
+            ((p, c / n) for p, c in finals.items()), key=lambda x: -x[1]
+        )
         return df.reset_index(drop=True)

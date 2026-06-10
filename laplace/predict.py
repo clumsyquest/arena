@@ -107,13 +107,21 @@ class Oracle:
     def rating(self, team):
         return self.ratings[resolve(team, self.ratings)]
 
+    def lambdas(self, team_a, team_b, home_ind=0):
+        return self.model.lambdas(self.ratings[team_a], self.ratings[team_b], home_ind)
+
+    def score_matrix(self, team_a, team_b, home_ind=0, max_goals=10):
+        return self.model.score_matrix(
+            self.ratings[team_a], self.ratings[team_b], home_ind, max_goals
+        )
+
     def match(self, team_a, team_b, home_ind=0, max_goals=10):
         """Prophétie complète : probabilités 1-N-2, buts attendus, scores probables."""
         a = resolve(team_a, self.ratings)
         b = resolve(team_b, self.ratings)
         ra, rb = self.ratings[a], self.ratings[b]
-        m = self.model.score_matrix(ra, rb, home_ind, max_goals)
-        la, lb = self.model.lambdas(ra, rb, home_ind)
+        m = self.score_matrix(a, b, home_ind, max_goals)
+        la, lb = self.lambdas(a, b, home_ind)
 
         p_win = float(np.tril(m, -1).sum())   # lignes = buts de A
         p_draw = float(np.trace(m))

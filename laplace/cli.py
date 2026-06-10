@@ -68,12 +68,16 @@ BANNER = f"""{MAGENTA}{BOLD}
    ╚══════════════════════════════════════════════════════════╝{RESET}"""
 
 
-def _oracle(verbose=True):
-    from laplace import build_oracle
-
+def _oracle(verbose=True, engine="v2"):
     if verbose:
         print(f"{DIM}⚙  Le démon relit toute l'histoire du football (1872 → aujourd'hui)...{RESET}")
-    return build_oracle(verbose=verbose)
+    if engine == "v1":
+        from laplace import build_oracle
+
+        return build_oracle(verbose=verbose)
+    from laplace.ensemble import build_ensemble
+
+    return build_ensemble(verbose=verbose)
 
 
 def cmd_update(args):
@@ -122,7 +126,7 @@ def _print_match(p):
 
 
 def cmd_match(args):
-    oracle = _oracle()
+    oracle = _oracle(engine=args.engine)
     home_ind = {"a": 1, "b": -1, "neutral": 0}[args.home]
     p = oracle.match(args.team_a, args.team_b, home_ind)
     print(BANNER)
@@ -135,7 +139,7 @@ def cmd_match(args):
 def cmd_today(args):
     from laplace.data import fixtures
 
-    oracle = _oracle()
+    oracle = _oracle(engine=args.engine)
     day = args.date or str(_date.today())
     fx = fixtures(start=day, end=day)
     print(BANNER)
@@ -154,7 +158,7 @@ def cmd_today(args):
 
 
 def cmd_groups(args):
-    oracle = _oracle()
+    oracle = _oracle(engine=args.engine)
     from laplace.simulate import Simulator
     from laplace.worldcup import GROUPS
 
@@ -177,12 +181,15 @@ def cmd_groups(args):
 
 
 def cmd_simulate(args):
-    oracle = _oracle()
+    oracle = _oracle(engine=args.engine)
     from laplace.simulate import Simulator
 
     print(BANNER)
     print(f"\n{DIM}⚙  Le démon fait jouer la Coupe du Monde dans {args.n} univers parallèles...{RESET}")
     sim = Simulator(oracle, seed=args.seed)
+    if sim.fixed:
+        print(f"{DIM}⚡ Démon vivant : {len(sim.fixed)} résultats réels déjà gravés, "
+              f"seul le futur restant est simulé.{RESET}")
     df = sim.run(args.n, progress=args.n // 4 if args.n >= 4000 else None)
 
     podium = df.head(3)
@@ -210,6 +217,21 @@ def cmd_simulate(args):
         print(line + "  " + bar(min(r["p_champion"] / max(df["p_champion"].iloc[0], 1e-9), 1.0), 14, MAGENTA))
     if args.cutoff:
         print(f"   {DIM}... équipes sous {100 * args.cutoff:.1f}% de titre masquées (--cutoff 0 pour tout voir){RESET}")
+
+    print(f"\n   {BOLD}LES FINALES LES PLUS PROBABLES{RESET}")
+    for (a, b), p in sim.finals[:5]:
+        print(f"     {flag(a)} {a}  🆚  {flag(b)} {b}   {BOLD}{100 * p:4.1f}%{RESET} des univers")
+
+    elo_rank = {t: i + 1 for i, (t, _) in enumerate(
+        sorted(((r["team"], r["elo"]) for _, r in df.iterrows()), key=lambda x: -x[1])
+    )}
+    dark = max(
+        (r for _, r in df.iterrows() if elo_rank[r["team"]] > 10),
+        key=lambda r: r["p_sf"],
+    )
+    print(f"\n   🐎 {BOLD}Outsider du démon{RESET} : {flag(dark['team'])} {dark['team']} "
+          f"(Elo n°{elo_rank[dark['team']]} seulement, mais {100 * dark['p_sf']:.1f}% de demi-finale)")
+
     if args.csv:
         df.to_csv(args.csv, index=False)
         print(f"\n   {GREEN}✓{RESET} Prophétie complète exportée : {args.csv}")
@@ -227,8 +249,9 @@ def cmd_backtest(args):
         r = backtest(y)
         print(f"   {BOLD}{CYAN}Coupe du Monde {y}{RESET} — {r['n_matches']} matchs prédits")
         print(
-            f"     log-loss {BOLD}{r['logloss']:.4f}{RESET} "
-            f"{DIM}(hasard uniforme : {r['uniform_logloss']:.4f} · taux de base : {r['base_logloss']:.4f}){RESET}"
+            f"     log-loss {BOLD}{r['logloss']:.4f}{RESET} en mode vivant "
+            f"{DIM}(figé : {r['logloss_frozen']:.4f} · hasard uniforme : {r['uniform_logloss']:.4f} "
+            f"· taux de base : {r['base_logloss']:.4f}){RESET}"
         )
         print(
             f"     Brier {BOLD}{r['brier']:.4f}{RESET} {DIM}(hasard : {r['uniform_brier']:.4f}){RESET}"
@@ -240,6 +263,29 @@ def cmd_backtest(args):
             f"     Champion réel : {flag(r['champion'])} {BOLD}{r['champion']}{RESET}"
             f" — n°{r['champion_elo_rank']} de son classement pré-tournoi\n"
         )
+
+
+def cmd_proof(args):
+    from laplace.ensemble import optimise_weights, proof
+
+    print(BANNER)
+    print(f"\n{BOLD}   LA PREUVE — 3 cerveaux seuls vs FUSION, 9 tournois rejoués sans triche{RESET}")
+    print(f"{DIM}   (log-loss, plus bas = plus fort ; hasard = 1.0986 ; poids fusion en leave-one-out){RESET}\n")
+    rows, w_final = proof(verbose=True)
+    print()
+    print(f"   {BOLD}{'Tournoi':<15}{'n':>4}  {'Historien':>10} {'Anatomiste':>11} {'Fiévreux':>9} {'FUSION':>8}{RESET}")
+    tot = {k: 0.0 for k in ("historien", "anatomiste", "fievreux", "fusion")}
+    n_tot = 0
+    for r in rows:
+        print(f"   {r['label']:<15}{r['n']:>4}  {r['historien']:>10.4f} {r['anatomiste']:>11.4f} "
+              f"{r['fievreux']:>9.4f} {BOLD}{r['fusion']:>8.4f}{RESET}")
+        for k in tot:
+            tot[k] += r[k] * r["n"]
+        n_tot += r["n"]
+    print(f"   {BOLD}{'TOTAL':<15}{n_tot:>4}  {tot['historien'] / n_tot:>10.4f} {tot['anatomiste'] / n_tot:>11.4f} "
+          f"{tot['fievreux'] / n_tot:>9.4f} {tot['fusion'] / n_tot:>8.4f}{RESET}")
+    print(f"\n   Poids retenus pour 2026 : {tuple(round(w, 2) for w in w_final)} "
+          f"{DIM}(Historien · Anatomiste · Fiévreux){RESET}\n")
 
 
 def main(argv=None):
@@ -259,15 +305,18 @@ def main(argv=None):
     p.add_argument("team_a")
     p.add_argument("team_b")
     p.add_argument("--home", choices=["a", "b", "neutral"], default="neutral")
+    p.add_argument("--engine", choices=["v1", "v2"], default="v2")
     p.set_defaults(fn=cmd_match)
 
     p = sub.add_parser("today", help="prophéties des matchs du jour")
     p.add_argument("--date", help="AAAA-MM-JJ (défaut : aujourd'hui)")
+    p.add_argument("--engine", choices=["v1", "v2"], default="v2")
     p.set_defaults(fn=cmd_today)
 
     p = sub.add_parser("groups", help="destin des 12 groupes")
     p.add_argument("-n", type=int, default=10000)
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--engine", choices=["v1", "v2"], default="v2")
     p.set_defaults(fn=cmd_groups)
 
     p = sub.add_parser("simulate", help="simuler le tournoi entier")
@@ -275,7 +324,11 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--cutoff", type=float, default=0.002, help="masquer sous ce %% de titre")
     p.add_argument("--csv", help="exporter la prophétie complète en CSV")
+    p.add_argument("--engine", choices=["v1", "v2"], default="v2")
     p.set_defaults(fn=cmd_simulate)
+
+    p = sub.add_parser("proof", help="le duel des cerveaux sur 9 tournois (LOO)")
+    p.set_defaults(fn=cmd_proof)
 
     p = sub.add_parser("backtest", help="prouver la puissance sur 2014/2018/2022")
     p.add_argument("--cup", type=int, choices=[2014, 2018, 2022], default=None)
