@@ -265,6 +265,34 @@ def cmd_backtest(args):
         )
 
 
+def cmd_market(args):
+    from laplace.market import UNLOCK_HELP, edges
+
+    print(BANNER)
+    print(f"\n{BOLD}   LE VOLEUR DE CERVEAUX — démon vs marché mondial{RESET}\n")
+    try:
+        oracle = _oracle(engine=args.engine)
+        rows = edges(oracle, threshold=args.threshold)
+    except PermissionError as e:
+        print(str(e))
+        return
+    except LookupError as e:
+        print(f"   {YELLOW}{e}{RESET}")
+        return
+    if not rows:
+        print(f"   {DIM}Aucun match coté trouvé.{RESET}")
+        return
+    for r in rows:
+        a, b = r["home"], r["away"]
+        pd_, pm, pf = r["p_demon"], r["p_market"], r["p_fused"]
+        mark = f" {MAGENTA}{BOLD}⚡ FAILLE ({r['gap']:+.0%} sur {r['gap_on']}){RESET}" if r["is_edge"] else ""
+        print(f"   {flag(a)} {a} – {flag(b)} {b}  {DIM}({r['n_bookmakers']} bookmakers){RESET}{mark}")
+        print(f"     démon  {pd_[0]:5.0%} {pd_[1]:5.0%} {pd_[2]:5.0%}   "
+              f"marché {pm[0]:5.0%} {pm[1]:5.0%} {pm[2]:5.0%}   "
+              f"{BOLD}fusion {pf[0]:5.0%} {pf[1]:5.0%} {pf[2]:5.0%}{RESET}")
+    print()
+
+
 def cmd_adjust(args):
     from laplace import scout
 
@@ -355,6 +383,11 @@ def main(argv=None):
 
     p = sub.add_parser("proof", help="le duel des cerveaux sur 9 tournois (LOO)")
     p.set_defaults(fn=cmd_proof)
+
+    p = sub.add_parser("market", help="voleur de cerveaux : démon vs cotes du marché")
+    p.add_argument("--threshold", type=float, default=0.08, help="seuil de faille")
+    p.add_argument("--engine", choices=["v1", "v2"], default="v2")
+    p.set_defaults(fn=cmd_market)
 
     p = sub.add_parser("adjust", help="éclaireur : injecter une info terrain (blessure...)")
     p.add_argument("team", nargs="?")
