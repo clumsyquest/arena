@@ -313,3 +313,40 @@ def edges(oracle, threshold=0.08):
             "is_edge": abs(gaps[i_max]) >= threshold,
         })
     return sorted(rows, key=lambda r: -abs(r["gap"]))
+
+
+def enroll(rows, directory="prophecies"):
+    """Inscrit MARCHÉ et FUSION comme CONCURRENTS au registre du duel.
+
+    Le sceau du démon reste pur (100% démon, jamais aligné). Ces deux
+    systèmes deviennent de simples adversaires de plus : challenger_*.csv,
+    jugés par `laplace verdict` exactement comme GPT55. Append-only —
+    les lignes déjà gravées ne sont jamais réécrites (loi des sceaux).
+    """
+    import csv
+
+    os.makedirs(directory, exist_ok=True)
+    written = {}
+    for name, key in (("MARCHE", "p_market"), ("FUSION", "p_fused")):
+        path = os.path.join(directory, f"challenger_{name}.csv")
+        seen = set()
+        if os.path.exists(path):
+            with open(path) as f:
+                seen = {(r["date"], r["team_a"], r["team_b"]) for r in csv.DictReader(f)}
+        new = 0
+        with open(path, "a", newline="") as f:
+            w = csv.writer(f)
+            if f.tell() == 0:
+                w.writerow(["date", "team_a", "team_b", "p1", "pn", "p2", "pick"])
+            for r in rows:
+                d = str(r.get("start", ""))[:10]
+                k = (d, r["home"], r["away"])
+                if k in seen:
+                    continue
+                p = r[key]
+                pick = ["1", "N", "2"][max(range(3), key=lambda i: p[i])]
+                w.writerow([d, r["home"], r["away"],
+                            f"{p[0]:.4f}", f"{p[1]:.4f}", f"{p[2]:.4f}", pick])
+                new += 1
+        written[name] = new
+    return written

@@ -70,10 +70,16 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
    démon +20% sur le Canada est donc suspecte) → propose `laplace adjust` au
    commandant AVANT le sceau du jour ; lui valide.
 4. **Le rituel quotidien du tournoi** (propose-le chaque jour) :
-   `update` → `today` → vol des cotes + `market` → `seal` (AVANT les matchs) →
-   `verdict` → commit. Premier verdict attendu le 11/06 au soir :
-   Mexique–Afrique du Sud (nous 78% Mexique scellé c50f0ec, marché 67% —
-   la première faille jugée par le réel).
+   `update` → `today` → vol des cotes FRAÎCHES du jour + `market --enroll`
+   (inscrit MARCHE et FUSION comme concurrents, append-only) → `seal`
+   (AVANT les matchs) → `verdict` → commit. L'ARÈNE A 4 DUELLISTES :
+   DÉMON (sceau pur, jamais aligné sur le marché — ordre du commandant),
+   MARCHE, FUSION, GPT55. La précision du démon SEUL est l'objectif ;
+   marché/fusion ne sont que des adversaires à battre. Nota : les lignes
+   MARCHE/FUSION des 12-13/06 sont des instantanés du 10/06 (append-only
+   oblige) ; à partir du 14/06, voler+inscrire le matin même du match.
+   Premier verdict attendu le 11/06 au soir : Mexique–Afrique du Sud
+   (démon 78% scellé c50f0ec, marché 67% — la première faille jugée).
 5. Si le commandant relance le sujet du système GPT à "70%" : ne débats PLUS.
    Le registre tranche : ses prédictions vont dans `challenger_GPT55.csv`,
    `laplace verdict` compte, fin de l'histoire. Toi, tu forges.

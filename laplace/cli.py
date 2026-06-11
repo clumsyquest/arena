@@ -287,9 +287,16 @@ def cmd_market(args):
         pd_, pm, pf = r["p_demon"], r["p_market"], r["p_fused"]
         mark = f" {MAGENTA}{BOLD}⚡ FAILLE ({r['gap']:+.0%} sur {r['gap_on']}){RESET}" if r["is_edge"] else ""
         print(f"   {flag(a)} {a} – {flag(b)} {b}  {DIM}({r['sources']}){RESET}{mark}")
-        print(f"     démon  {pd_[0]:5.0%} {pd_[1]:5.0%} {pd_[2]:5.0%}   "
+        print(f"     {BOLD}démon  {pd_[0]:5.0%} {pd_[1]:5.0%} {pd_[2]:5.0%}{RESET}   "
               f"marché {pm[0]:5.0%} {pm[1]:5.0%} {pm[2]:5.0%}   "
-              f"{BOLD}fusion {pf[0]:5.0%} {pf[1]:5.0%} {pf[2]:5.0%}{RESET}")
+              f"{DIM}fusion {pf[0]:5.0%} {pf[1]:5.0%} {pf[2]:5.0%}{RESET}")
+    if args.enroll:
+        from laplace.market import enroll
+
+        counts = enroll(rows)
+        print(f"\n   ⚔  Concurrents inscrits au registre : "
+              f"MARCHE +{counts['MARCHE']} · FUSION +{counts['FUSION']} affiches")
+        print(f"   {DIM}Le sceau du démon reste 100% démon — `laplace verdict` départagera.{RESET}")
     print()
 
 
@@ -490,6 +497,8 @@ def main(argv=None):
     p = sub.add_parser("market", help="voleur de cerveaux : démon vs cotes du marché")
     p.add_argument("--threshold", type=float, default=0.08, help="seuil de faille")
     p.add_argument("--engine", choices=["v1", "v2"], default="v2")
+    p.add_argument("--enroll", action="store_true",
+                   help="inscrire MARCHÉ et FUSION comme concurrents du registre")
     p.set_defaults(fn=cmd_market)
 
     p = sub.add_parser("adjust", help="éclaireur : injecter une info terrain (blessure...)")
