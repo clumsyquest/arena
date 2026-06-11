@@ -29,9 +29,20 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
   aucune donnée externe.
 - **Commandes** : `python -m laplace {simulate,today,match,groups,ratings,
   backtest,proof,market,adjust,seal,verdict,update}` — voir README.
-- **Le registre du duel** : `prophecies/` — sceaux quotidiens horodatés par git
-  (`laplace seal`), arbitrage automatique (`laplace verdict`), concurrents via
-  `prophecies/challenger_NOM.csv` (format: date,team_a,team_b,p1,pn,p2,pick).
+- **Le registre du duel — L'ARÈNE À 5** : `prophecies/` — sceaux quotidiens
+  horodatés par git (`laplace seal`), arbitrage automatique (`laplace verdict`),
+  concurrents `challenger_NOM.csv` (date,team_a,team_b,p1,pn,p2,pick).
+  Duellistes : 🔮 DÉMON (sceau pur — `seal` désactive TOUJOURS les ajustements
+  scout le temps du build), 🔭 ÉCLAIREUR (démon + blessures, généré
+  automatiquement par `seal` quand des ajustements sont actifs), 🧠 MARCHE et
+  ⚗️ FUSION (`market --enroll`), 🤖 GPT55. JAMAIS aligner le démon sur le
+  marché : ordre du commandant — sa précision à LUI est l'objectif, le reste
+  n'est que des adversaires.
+- **Le Sceau Total** : `laplace seal --tournament -n 200000 --seed 2026` —
+  destin des 48 équipes gravé le 11/06 à 09h UTC (avant l'ouverture) dans
+  `prophecies/TOURNAMENT_SEAL_2026-06-11.csv` (+ vitrine TOURNOI_*.md).
+  Podium scellé : Espagne 23.04%, Argentine 18.44%, France 9.49%.
+  Re-gravable chaque jour (date du jour) → la courbe du destin.
 - Données : `data/results.csv` (49 400 matchs, source martj42 GitHub, rafraîchie
   par `laplace update` — le mainteneur ajoute les résultats en quelques heures).
 
@@ -69,15 +80,27 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
    (relevé du 10/06 : Alphonso Davies FORFAIT pour Canada–Bosnie, et la faille
    démon +20% sur le Canada est donc suspecte) → propose `laplace adjust` au
    commandant AVANT le sceau du jour ; lui valide.
-4. **Le rituel quotidien du tournoi** (propose-le chaque jour) :
-   `update` → `today` → vol des cotes FRAÎCHES du jour + `market --enroll`
-   (inscrit MARCHE et FUSION comme concurrents, append-only) → `seal`
-   (AVANT les matchs) → `verdict` → commit. L'ARÈNE A 4 DUELLISTES :
-   DÉMON (sceau pur, jamais aligné sur le marché — ordre du commandant),
-   MARCHE, FUSION, GPT55. La précision du démon SEUL est l'objectif ;
-   marché/fusion ne sont que des adversaires à battre. Nota : les lignes
-   MARCHE/FUSION des 12-13/06 sont des instantanés du 10/06 (append-only
-   oblige) ; à partir du 14/06, voler+inscrire le matin même du match.
+4. **Le rituel quotidien du tournoi** (exécute-le en autonomie, le commandant
+   veut du résultat, pas des questions) :
+   a. `update` puis `verdict` — le réel juge la veille, montre le tableau.
+   b. Vol des cotes FRAÎCHES des matchs du jour/lendemain (WebSearch) →
+      maj `data/market_quotes.csv` → `market --enroll` (matin du match
+      uniquement, pour des lignes fraîches).
+   c. Éclaireur : blessures des équipes qui jouent sous 48h (WebSearch) →
+      `laplace adjust` avec motif SOURCÉ. ⚠ Les ajustements sont PÉRISSABLES :
+      retire-les quand le joueur revient (ex. Davies peut revenir au match 2
+      ou 3 du Canada — re-vérifier !).
+   d. `seal` (jour J, AVANT les matchs — grave SEAL pur + ÉCLAIREUR auto).
+   e. `seal --tournament -n 100000` (un point de plus sur la courbe du destin).
+   f. Commit + push sur la branche de session. PAS de push intermédiaire
+      pendant le travail : on pousse quand c'est du lourd (ordre du 11/06).
+   ÉTAT au 11/06 09h30 UTC : sceaux 11+12+13/06 gravés (SEAL pur + ÉCLAIREUR
+   8 affiches + MARCHE/FUSION 8 + Sceau Total). Ajustements actifs :
+   Canada -50 (Davies+Bombito), Scotland -35 (Gilmour out tournoi),
+   Morocco -20 (Mazraoui/Ezzalzoul), Paraguay -15 (Enciso), Netherlands -20
+   (Timber, tracker ESPN — RE-VÉRIFIER avant le sceau du 14). Reste à faire
+   le 12 au matin : verdict du 11, cotes+sceaux du 14 (Allemagne–Curaçao,
+   Côte d'Ivoire–Équateur, Pays-Bas–Japon, Suède–Tunisie).
    Premier verdict attendu le 11/06 au soir : Mexique–Afrique du Sud
    (démon 78% scellé c50f0ec, marché 67% — la première faille jugée).
 5. Si le commandant relance le sujet du système GPT à "70%" : ne débats PLUS.

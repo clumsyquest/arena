@@ -43,18 +43,27 @@ python -m laplace simulate            # la prophétie complète (20 000 univers)
 | `python -m laplace groups` | Le destin des 12 groupes (P 1er, P 2e, P qualifié) |
 | `python -m laplace ratings --top 30` | Le classement Elo mondial recalculé depuis 1872 |
 | `python -m laplace backtest` | Le serment d'honnêteté : le démon jugé sur 2014, 2018, 2022 |
-| `python -m laplace market` | Le Voleur de Cerveaux : démon vs cotes du marché, failles signalées (gratuit, sans clé — réseau requis) |
-| `python -m laplace adjust France -40 --reason "blessure"` | L'Éclaireur : injecter une info terrain dans tous les cerveaux |
+| `python -m laplace market --enroll` | Le Voleur de Cerveaux : démon vs cotes du marché (réseau OU `data/market_quotes.csv`), failles signalées, MARCHÉ+FUSION inscrits comme concurrents |
+| `python -m laplace adjust France -40 --reason "blessure"` | L'Éclaireur : injecter une info terrain dans tous les cerveaux (les sceaux restent PURS ; l'info nourrit le duelliste ÉCLAIREUR) |
+| `python -m laplace seal` | Graver les prophéties du jour AVANT les matchs (+ ligne ÉCLAIREUR si renseignements actifs) |
+| `python -m laplace seal --tournament -n 200000` | **Le Sceau Total** : destin complet des 48 équipes, reproductible à la graine près |
+| `python -m laplace verdict` | Le tribunal : chaque système scellé jugé par le réel (log-loss + précision) |
 | `python -m laplace update` | Recharge les données fraîches (résultats de la veille inclus) |
 
 ### Le rituel quotidien pendant la Coupe du Monde
 
 ```bash
-python -m laplace update && python -m laplace today
+python -m laplace update && python -m laplace verdict   # le réel juge la veille
+python -m laplace today                                  # prophéties du jour
+python -m laplace market --enroll                        # vol des cotes + arène
+python -m laplace seal                                   # graver AVANT les matchs
 ```
 
-Les résultats de la veille sont intégrés, le classement Elo bouge, les
-prophéties du soir tombent.
+Les résultats de la veille sont intégrés, le classement Elo bouge, le registre
+compte les points. **L'arène du registre** (`prophecies/`) oppose cinq
+duellistes : 🔮 DÉMON (pur), 🔭 ÉCLAIREUR (démon + blessures), 🧠 MARCHÉ
+(bookmakers dé-vigés), ⚗️ FUSION (70% marché / 30% démon), 🤖 GPT55.
+Tout est scellé avant les matchs, horodaté par git, jamais réécrit.
 
 ## LA TRANSCENDANCE (v2) ⚡
 

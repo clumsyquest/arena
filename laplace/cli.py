@@ -326,13 +326,38 @@ def cmd_adjust(args):
           f"{DIM}({args.reason or 'sans motif'}) — appliqué à tous les cerveaux dès maintenant.{RESET}")
 
 
+def _scout_paused():
+    """Capture puis vide les ajustements de l'éclaireur (pour un build PUR)."""
+    from laplace import scout
+
+    snap = scout.load()
+    scout.save({})
+    return snap
+
+
+def _seal_rows(oracle, fx, day):
+    rows = []
+    for row in fx.itertuples():
+        h = 0 if row.neutral else 1
+        p = oracle.match(row.home_team, row.away_team, h)
+        pr = [p["p_win"], p["p_draw"], p["p_loss"]]
+        pick = ["1", "N", "2"][max(range(3), key=lambda i: pr[i])]
+        rows.append([day, p["team_a"], p["team_b"],
+                     f"{pr[0]:.4f}", f"{pr[1]:.4f}", f"{pr[2]:.4f}", pick])
+    return rows
+
+
 def cmd_seal(args):
     import csv
     import os
 
+    from laplace import scout
     from laplace.data import fixtures
 
-    oracle = _oracle(engine="v2")
+    if args.tournament:
+        _seal_tournament(args)
+        return
+
     day = args.date or str(_date.today())
     fx = fixtures(start=day, end=day)
     if fx.empty:
@@ -340,17 +365,81 @@ def cmd_seal(args):
         return
     os.makedirs("prophecies", exist_ok=True)
     path = f"prophecies/SEAL_{day}.csv"
+    if os.path.exists(path):
+        print(f"{RED}✗ {path} existe déjà — un sceau ne se réécrit JAMAIS (loi n°4).{RESET}")
+        return
+
+    # Le sceau officiel est le démon PUR : le modèle seul, sans info terrain.
+    snap = _scout_paused()
+    try:
+        oracle = _oracle(engine="v2")
+    finally:
+        scout.save(snap)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["date", "team_a", "team_b", "p1", "pn", "p2", "pick"])
-        for row in fx.itertuples():
-            h = 0 if row.neutral else 1
-            p = oracle.match(row.home_team, row.away_team, h)
-            pr = [p["p_win"], p["p_draw"], p["p_loss"]]
-            pick = ["1", "N", "2"][max(range(3), key=lambda i: pr[i])]
-            w.writerow([day, p["team_a"], p["team_b"],
-                        f"{pr[0]:.4f}", f"{pr[1]:.4f}", f"{pr[2]:.4f}", pick])
+        w.writerows(_seal_rows(oracle, fx, day))
     print(f"{GREEN}🔏 Scellé : {path} — grave-le : git add prophecies && git commit{RESET}")
+
+    # Le 5e duelliste : ÉCLAIREUR = démon + intelligence terrain (blessures...),
+    # inscrit comme simple concurrent du registre. L'arène jugera si l'info
+    # terrain vaut des points de log-loss.
+    if snap:
+        adj_oracle = _oracle(verbose=False, engine="v2")
+        cpath = "prophecies/challenger_ECLAIREUR.csv"
+        seen = set()
+        if os.path.exists(cpath):
+            with open(cpath) as f:
+                seen = {(r["date"], r["team_a"], r["team_b"]) for r in csv.DictReader(f)}
+        with open(cpath, "a", newline="") as f:
+            w = csv.writer(f)
+            if f.tell() == 0:
+                w.writerow(["date", "team_a", "team_b", "p1", "pn", "p2", "pick"])
+            new = [r for r in _seal_rows(adj_oracle, fx, day)
+                   if (r[0], r[1], r[2]) not in seen]
+            w.writerows(new)
+        actifs = " · ".join(f"{t} {i['delta']:+.0f}" for t, i in snap.items())
+        print(f"{GREEN}🔭 Éclaireur inscrit (+{len(new)} affiches){RESET} {DIM}[{actifs}]{RESET}")
+
+
+def _seal_tournament(args):
+    import csv
+    import os
+
+    from laplace import scout
+    from laplace.data import played
+    from laplace.simulate import Simulator
+
+    day = args.date or str(_date.today())
+    path = f"prophecies/TOURNAMENT_SEAL_{day}.csv"
+    if os.path.exists(path):
+        print(f"{RED}✗ {path} existe déjà — un sceau ne se réécrit JAMAIS (loi n°4).{RESET}")
+        return
+    os.makedirs("prophecies", exist_ok=True)
+
+    snap = _scout_paused()
+    try:
+        oracle = _oracle(engine="v2")
+    finally:
+        scout.save(snap)
+    sim = Simulator(oracle, seed=args.seed)
+    print(f"{DIM}⚙  Sceau Total : {args.n} univers (graine {args.seed}, démon pur, "
+          f"{len(sim.fixed)} résultats réels gravés)...{RESET}")
+    df = sim.run(args.n, progress=args.n // 4)
+    last = str(played()["date"].max().date())
+    cols = ("p_group_win", "p_runner_up", "p_r32", "p_r16",
+            "p_qf", "p_sf", "p_final", "p_champion")
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["sealed_on", "data_until", "n_universes", "seed",
+                    "team", "group", "elo", *cols, "exp_pts"])
+        for _, r in df.iterrows():
+            w.writerow([day, last, args.n, args.seed, r["team"], r["group"],
+                        f"{r['elo']:.1f}", *(f"{r[c]:.5f}" for c in cols),
+                        f"{r['exp_pts']:.3f}"])
+    print(f"{GREEN}🔏 Sceau Total : {path} — le destin des 48, gravé avant le réel.{RESET}")
+    for m, (_, r) in zip(["🥇", "🥈", "🥉"], df.head(3).iterrows()):
+        print(f"     {m} {flag(r['team'])} {r['team']} — {100 * r['p_champion']:.2f}%")
 
 
 def cmd_verdict(args):
@@ -489,6 +578,10 @@ def main(argv=None):
 
     p = sub.add_parser("seal", help="sceller les prophéties du jour (CSV horodaté git)")
     p.add_argument("--date", help="AAAA-MM-JJ (défaut : aujourd'hui)")
+    p.add_argument("--tournament", action="store_true",
+                   help="Sceau Total : destin complet des 48 équipes")
+    p.add_argument("-n", type=int, default=100000, help="univers (Sceau Total)")
+    p.add_argument("--seed", type=int, default=2026, help="graine reproductible")
     p.set_defaults(fn=cmd_seal)
 
     p = sub.add_parser("verdict", help="le réel juge tous les systèmes scellés")
