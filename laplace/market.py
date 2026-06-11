@@ -20,13 +20,21 @@ import urllib.request
 
 BASE = "https://api.the-odds-api.com/v4"
 
+QUOTES_CSV = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "market_quotes.csv"
+)
+
 UNLOCK_HELP = """\
-🔒 Le Voleur de Cerveaux est en cage (réseau fermé).
-   ⚠ La politique réseau ne s'applique qu'aux NOUVELLES sessions :
-   si tu viens de passer l'environnement en 'All domains', il faut
-   DÉMARRER UNE NOUVELLE SESSION pour que la porte s'ouvre vraiment.
-   Doc : https://code.claude.com/docs/en/claude-code-on-the-web
-   (Aucune clé requise : sources gratuites ESPN/Sofascore intégrées.)
+🔒 Le Voleur de Cerveaux est en cage (réseau fermé) et aucune cote volée
+   n'est disponible dans data/market_quotes.csv pour les prochains jours.
+   Deux portes :
+   1. Le passeur : le gardien (Claude) vole les cotes via WebSearch et les
+      écrit dans data/market_quotes.csv
+      (colonnes : date,home,away,source,format,o1,ox,o2 ;
+       format ∈ american/decimal/prob, une ligne par bookmaker).
+   2. Réseau ouvert : la politique ne s'applique qu'aux NOUVELLES sessions —
+      après passage en 'All domains', DÉMARRER UNE NOUVELLE SESSION.
+      Doc : https://code.claude.com/docs/en/claude-code-on-the-web
 """
 
 # Noms des sources -> noms du jeu de données
@@ -77,6 +85,52 @@ def _devig(d1, dx, d2):
     inv = [1.0 / d1, 1.0 / dx, 1.0 / d2]
     s = sum(inv)
     return tuple(v / s for v in inv)
+
+
+# ----------------------------------------- Cotes volées à la main (le passeur)
+
+def _to_dec(value, fmt):
+    v = str(value).strip().replace(",", ".")
+    if fmt == "american":
+        return _amer_to_dec(v)
+    if fmt == "prob":
+        p = float(v)
+        if p > 1.0:  # donné en pourcentage
+            p /= 100.0
+        return 1.0 / max(p, 1e-9)
+    return float(v)  # décimal
+
+
+def load_quotes_file(date_from, date_to, path=QUOTES_CSV):
+    """Cotes rapportées à la main quand le réseau est en cage.
+
+    Le gardien (session Claude) vole les cotes dehors via WebSearch et les
+    grave ici. Une ligne par bookmaker ; elles sont dé-vigées puis moyennées
+    par affiche comme n'importe quelle source réseau.
+    """
+    import csv
+
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path) as f:
+        for row in csv.DictReader(f):
+            d = str(row.get("date", "")).strip()
+            if not (date_from <= d <= date_to):
+                continue
+            try:
+                fmt = (row.get("format") or "decimal").strip().lower()
+                dec = tuple(_to_dec(row[k], fmt) for k in ("o1", "ox", "o2"))
+                out.append({
+                    "home": _norm(row["home"].strip()),
+                    "away": _norm(row["away"].strip()),
+                    "start": d,
+                    "source": (row.get("source") or "fichier").strip(),
+                    "p": _devig(*dec),
+                })
+            except (KeyError, ValueError, ZeroDivisionError):
+                continue
+    return out
 
 
 # ---------------------------------------------------------------- ESPN (gratuit)
@@ -190,6 +244,7 @@ def fetch_market(days_ahead=3):
     until = today + timedelta(days=days_ahead)
     quotes, errors = [], []
     for fn in (
+        lambda: load_quotes_file(str(today), str(until)),
         lambda: fetch_espn(str(today), str(until)),
         lambda: [q for d in range(days_ahead + 1)
                  for q in fetch_sofascore(str(today + timedelta(days=d)))],
@@ -230,10 +285,20 @@ def fuse(p_demon, p_market, w_market=0.7):
 
 def edges(oracle, threshold=0.08):
     """Les failles : là où le démon défie le marché mondial."""
+    from laplace.data import fixtures
+
+    # Avantage du terrain réel (Mexique/USA/Canada hôtes) — le marché en tient
+    # compte, le démon doit être interrogé dans les mêmes conditions.
+    host = {}
+    for r in fixtures().itertuples():
+        host[(r.home_team, r.away_team)] = 0 if r.neutral else 1
+
     rows = []
     for ev in fetch_market():
+        key = (ev["home"], ev["away"])
+        h = host.get(key, -host.get((key[1], key[0]), 0))
         try:
-            p = oracle.match(ev["home"], ev["away"], 0)
+            p = oracle.match(ev["home"], ev["away"], h)
         except ValueError:
             continue
         p_demon = (p["p_win"], p["p_draw"], p["p_loss"])

@@ -48,19 +48,32 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
 
 ## TES ORDRES DE MISSION (dans l'ordre, dès la session ouverte)
 
-1. **Teste le réseau** : `curl -s -o /dev/null -w "%{http_code}" https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard`
-   - Si 200 : la porte est ouverte. Sinon : dis-le au commandant (la politique
-     réseau ne s'applique qu'aux NOUVELLES sessions de l'environnement).
-2. Porte ouverte → **active le Voleur de Cerveaux** : `python -m laplace market`.
-   ⚠ Les parseurs ESPN/Sofascore (`laplace/market.py`) ont été écrits EN CAGE,
-   jamais testés contre les vraies réponses : attends-toi à déboguer les champs.
-   Objectif : table démon vs marché + failles, chaque jour.
-3. **Construis l'Éclaireur autonome** : compos officielles + blessés via ESPN
-   (`/apis/site/v2/sports/soccer/fifa.world/news`, rosters par équipe) →
-   propositions d'ajustements `laplace adjust` (humain valide, ou auto léger).
+1. **Carte du réseau (relevée le 10/06/2026)** : la politique est une LISTE
+   BLANCHE. Ouverts : `raw.githubusercontent.com` (→ `laplace update` marche),
+   github.com, pypi.org. Fermés au proxy (« Host not in allowlist ») : ESPN,
+   Sofascore, tout site de cotes — via curl ET via WebFetch. **MAIS l'outil
+   WebSearch tourne côté Anthropic, hors cage : il fonctionne.** Re-teste en
+   début de session (la politique peut changer) :
+   `curl -s -o /dev/null -w "%{http_code}" https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard`
+2. **Le Voleur de Cerveaux opère via le passeur (toi)** : WebSearch par affiche
+   (« X vs Y World Cup 2026 odds moneyline draw ») → tu graves les triplets
+   1-N-2 COMPLETS et attribués (jamais de chiffre inventé, écarte les cotes
+   partielles) dans `data/market_quotes.csv`
+   (date,home,away,source,format,o1,ox,o2 ; format ∈ american/decimal/prob) →
+   `python -m laplace market` lit le fichier (`load_quotes_file`), dé-vige,
+   moyenne, et crache démon vs marché vs fusion + FAILLES.
+   ⚠ WebSearch a une limite de session (~9 requêtes) : priorise les matchs des
+   3 prochains jours (fenêtre de `fetch_market`). Activé le 10/06 : 16 cotes,
+   8 affiches, 7 failles détectées.
+3. **L'Éclaireur passe aussi par WebSearch** : blessés/compos dans les news
+   (relevé du 10/06 : Alphonso Davies FORFAIT pour Canada–Bosnie, et la faille
+   démon +20% sur le Canada est donc suspecte) → propose `laplace adjust` au
+   commandant AVANT le sceau du jour ; lui valide.
 4. **Le rituel quotidien du tournoi** (propose-le chaque jour) :
-   `update` → `today` → `seal` → `verdict` → commit du sceau.
-   Premier verdict : Mexique–Afrique du Sud (nous: 78% Mexique, scellé c50f0ec).
+   `update` → `today` → vol des cotes + `market` → `seal` (AVANT les matchs) →
+   `verdict` → commit. Premier verdict attendu le 11/06 au soir :
+   Mexique–Afrique du Sud (nous 78% Mexique scellé c50f0ec, marché 67% —
+   la première faille jugée par le réel).
 5. Si le commandant relance le sujet du système GPT à "70%" : ne débats PLUS.
    Le registre tranche : ses prédictions vont dans `challenger_GPT55.csv`,
    `laplace verdict` compte, fin de l'histoire. Toi, tu forges.
@@ -70,7 +83,8 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
 1. **Jamais gonfler un chiffre.** Notre valeur entière repose sur des nombres
    qui ont survécu au tribunal (protocole marche-avant, tout est rejouable).
 2. **Tester avant d'opiner.** Toute idée → expérience → verdict → commit.
-3. **Tout committer/pousser** sur la branche `claude/cool-mendel-sg7prq`.
+3. **Tout committer/pousser** sur la branche de la session courante (celle
+   donnée par le harnais — chaque session cloud a la sienne).
 4. Le réel est le seul benchmark. Les sceaux sont sacrés : toujours AVANT les
    matchs, jamais réécrits.
 
