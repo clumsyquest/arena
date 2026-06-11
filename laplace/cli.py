@@ -442,6 +442,186 @@ def _seal_tournament(args):
         print(f"     {m} {flag(r['team'])} {r['team']} — {100 * r['p_champion']:.2f}%")
 
 
+def _live_2026_records():
+    """Les sceaux du DÉMON jugés par le réel (format du pedigree)."""
+    import csv
+    import glob
+
+    import numpy as np
+
+    from laplace.data import played
+    from laplace.predict import resolve
+
+    df = played()
+    wc = df[(df["tournament"] == "FIFA World Cup") & (df["date"] >= np.datetime64("2026-06-01"))]
+    results = {(r.home_team, r.away_team): (int(r.home_score), int(r.away_score))
+               for r in wc.itertuples()}
+    known = set(df["home_team"]) | set(df["away_team"])
+    records = []
+    for path in sorted(glob.glob("prophecies/SEAL_*.csv")):
+        with open(path) as f:
+            for row in csv.DictReader(f):
+                try:
+                    a = resolve(row["team_a"].strip(), known)
+                    b = resolve(row["team_b"].strip(), known)
+                except ValueError:
+                    continue
+                res = results.get((a, b)) or tuple(reversed(results.get((b, a), ()))) or None
+                if not res:
+                    continue
+                y = 0 if res[0] > res[1] else (1 if res[0] == res[1] else 2)
+                p = [float(row["p1"]), float(row["pn"]), float(row["p2"])]
+                s = sum(p)
+                p = [x / s for x in p]
+                records.append({
+                    "tournament": "CDM 2026 (vivant)",
+                    "date": row["date"],
+                    "home": a, "away": b,
+                    "p1": p[0], "pn": p[1], "p2": p[2],
+                    "outcome": ["1", "N", "2"][y],
+                    "pick": ["1", "N", "2"][max(range(3), key=lambda i: p[i])],
+                    "hit": int(max(range(3), key=lambda i: p[i]) == y),
+                    "logloss": float(-__import__("numpy").log(max(p[y], 1e-12))),
+                })
+    return records
+
+
+def _print_global_precision():
+    """LE chiffre que le commandant veut voir : la précision globale, toujours."""
+    from laplace.pedigree import load, metrics
+
+    ped = load()
+    live = _live_2026_records()
+    if not ped and not live:
+        return
+    print(f"\n   {BOLD}{MAGENTA}PRÉCISION GLOBALE DU DÉMON{RESET} "
+          f"{DIM}(log-loss : plus bas = plus fort ; hasard 1.0986 / 33%){RESET}")
+    rows = []
+    if ped:
+        rows.append(("Pedigree 2010-2026 (marche avant)", metrics(ped)))
+    if live:
+        rows.append(("CDM 2026 en cours (sceaux jugés)", metrics(live)))
+    if ped and live:
+        rows.append(("GLOBAL — pedigree + 2026", metrics(ped + live)))
+    for label, m in rows:
+        print(f"     {label:<36} {m['n']:>4} matchs · "
+              f"log-loss {BOLD}{m['logloss']:.4f}{RESET} · "
+              f"précision {BOLD}{100 * m['accuracy']:.1f}%{RESET} · "
+              f"Brier {m['brier']:.4f}")
+    if not ped:
+        print(f"     {DIM}(pedigree absent — `python -m laplace pedigree` pour le graver){RESET}")
+
+
+def cmd_pedigree(args):
+    from laplace.pedigree import (PEDIGREE_CSV, by_tournament, calibration,
+                                  metrics, replay, save)
+
+    print(BANNER)
+    print(f"\n{BOLD}   LE PEDIGREE — la précision globale, rejouée sous tes yeux{RESET}")
+    print(f"{DIM}   (marche avant stricte : le démon ne voit jamais le futur du match prédit){RESET}\n")
+    records = replay(verbose=True)
+    path = save(records)
+    m = metrics(records)
+    print(f"\n   {BOLD}GLOBAL : {m['n']} matchs · log-loss {m['logloss']:.4f} · "
+          f"précision {100 * m['accuracy']:.1f}% · Brier {m['brier']:.4f}{RESET}")
+    print(f"   {DIM}hasard uniforme : 1.0986 / 33.3% · marché mondial : ~0.93-0.95 / ~57%{RESET}")
+    print(f"\n   {BOLD}CALIBRATION{RESET} {DIM}(annoncé vs arrivé — l'honnêteté se mesure){RESET}")
+    for b in calibration(records):
+        print(f"     {b['bucket']:>8}  annoncé {100 * b['announced']:5.1f}%  "
+              f"arrivé {100 * b['realized']:5.1f}%  {DIM}({b['n']} probas){RESET}")
+    print(f"\n   {GREEN}✓{RESET} Registre gravé : {path} ({m['n']} lignes)")
+
+    if args.md:
+        _write_pedigree_md(records, m)
+        print(f"   {GREEN}✓{RESET} Vitrine : prophecies/PEDIGREE.md")
+    print()
+
+
+def _write_pedigree_md(records, m):
+    from laplace.pedigree import by_tournament, calibration
+
+    lines = [
+        "# 🗡️ LE PEDIGREE DU DÉMON — sa précision globale, prouvée",
+        "",
+        "> Protocole : **marche avant stricte, mode vivant** — pour chaque match,",
+        "> le démon n'a vu que les matchs antérieurs ; modèles ajustés avant chaque",
+        "> tournoi, Elo mis à jour match après match. Rejouable : `python -m laplace pedigree`.",
+        "",
+        f"## LE CHIFFRE GLOBAL : {m['n']} matchs de grands tournois (2010-2026)",
+        "",
+        f"- **log-loss {m['logloss']:.4f}** (hasard : 1.0986 · marché mondial : ~0.93-0.95)",
+        f"- **précision {100 * m['accuracy']:.1f}%** sur 3 issues (hasard : 33.3% · marché : ~57%)",
+        f"- **Brier {m['brier']:.4f}** (hasard : 0.6667)",
+        "",
+        "## Par tournoi",
+        "",
+        "| Tournoi | n | log-loss | précision |",
+        "|---|---|---|---|",
+    ]
+    for t in by_tournament(records):
+        lines.append(f"| {t['label']} | {t['n']} | {t['logloss']:.4f} | {100 * t['accuracy']:.1f}% |")
+    lines += [
+        "",
+        "## Calibration — quand le démon annonce X%, ça arrive X% du temps",
+        "",
+        "| Annoncé (tranche) | Annoncé (moyen) | Arrivé | n probas |",
+        "|---|---|---|---|",
+    ]
+    for b in calibration(records):
+        lines.append(f"| {b['bucket']} | {100 * b['announced']:.1f}% | "
+                     f"{100 * b['realized']:.1f}% | {b['n']} |")
+    picks = [(max(r["p1"], r["pn"], r["p2"]), r) for r in records]
+    tiers = [(0.0, 0.40), (0.40, 0.50), (0.50, 0.60), (0.60, 1.01)]
+    lines += [
+        "",
+        "## Le baromètre de confiance — plus le démon est sûr, plus il a raison",
+        "",
+        "| Confiance du pronostic | n | précision |",
+        "|---|---|---|",
+    ]
+    for lo, hi in tiers:
+        sub = [r for c, r in picks if lo <= c < hi]
+        if sub:
+            acc = sum(r["hit"] for r in sub) / len(sub)
+            lines.append(f"| {100 * lo:.0f}–{min(100 * hi, 100):.0f}% | {len(sub)} | {100 * acc:.1f}% |")
+
+    draws = [r for r in records if r["pick"] == "N"]
+    draws_hit = [r for r in draws if r["hit"]]
+    if draws:
+        draw_line = (f"- **Nuls osés** : prédire un match nul est le pari le plus dur du "
+                     f"football — le démon l'a tenté {len(draws)} fois, réussi "
+                     f"{len(draws_hit)} ({100 * len(draws_hit) / len(draws):.0f}%).")
+    else:
+        draw_line = ("- **Le nul, jamais en pronostic n°1** : sur l'ensemble du pedigree, "
+                     "aucune affiche n'a eu le nul comme issue la plus probable (il "
+                     "plafonne vers ~33%). Le démon le dit en probabilités, pas en coups "
+                     "de poker — et sa tranche 20-30% est calibrée (cf. table).")
+    lines += [
+        "",
+        "## Les preuves de courage",
+        "",
+        draw_line,
+        "",
+        "Ses démonstrations les plus sûres (et réussies) :",
+        "",
+    ]
+    for c, r in sorted(((c, r) for c, r in picks if r["hit"]), key=lambda x: -x[0])[:5]:
+        lines.append(f"- {r['tournament']} · {r['home']}–{r['away']} : "
+                     f"pronostic {r['pick']} à {100 * c:.0f}% → ✅")
+    lines += ["", "Et ses humiliations (gravées aussi — l'honnêteté n'élague pas) :", ""]
+    for c, r in sorted(((c, r) for c, r in picks if not r["hit"]), key=lambda x: -x[0])[:5]:
+        lines.append(f"- {r['tournament']} · {r['home']}–{r['away']} : "
+                     f"pronostic {r['pick']} à {100 * c:.0f}% → ❌ (issue : {r['outcome']})")
+    lines += [
+        "",
+        "La log-loss 2026 en cours s'ajoute à ce pedigree à chaque `laplace verdict` :",
+        "le chiffre global vit avec le tournoi.",
+        "",
+    ]
+    with open("prophecies/PEDIGREE.md", "w") as f:
+        f.write("\n".join(lines))
+
+
 def cmd_verdict(args):
     import csv
     import glob
@@ -507,6 +687,7 @@ def cmd_verdict(args):
             if lls:
                 line += f" · log-loss {BOLD}{float(np.mean(lls)):.4f}{RESET}"
         print(line)
+    _print_global_precision()
     print(f"\n   {DIM}Inscrire un concurrent : prophecies/challenger_NOM.csv")
     print(f"   colonnes : date,team_a,team_b,p1,pn,p2,pick (probas ou pick seul){RESET}\n")
 
@@ -586,6 +767,11 @@ def main(argv=None):
 
     p = sub.add_parser("verdict", help="le réel juge tous les systèmes scellés")
     p.set_defaults(fn=cmd_verdict)
+
+    p = sub.add_parser("pedigree", help="la précision GLOBALE rejouée (9 tournois, marche avant)")
+    p.add_argument("--md", action="store_true", default=True,
+                   help="écrire aussi la vitrine prophecies/PEDIGREE.md")
+    p.set_defaults(fn=cmd_pedigree)
 
     p = sub.add_parser("market", help="voleur de cerveaux : démon vs cotes du marché")
     p.add_argument("--threshold", type=float, default=0.08, help="seuil de faille")

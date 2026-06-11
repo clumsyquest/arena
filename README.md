@@ -91,6 +91,19 @@ proof` rejoue le duel des cerveaux.)
 Un vrai démon ne triche pas : on le renvoie dans le passé, il n'a le droit de
 voir **que** les matchs antérieurs à chaque tournoi, puis il prédit tout.
 
+**LA PRÉCISION GLOBALE — le chiffre canon, rejouable par quiconque**
+(`python -m laplace pedigree`, registre complet dans `prophecies/PEDIGREE.csv`,
+vitrine dans `prophecies/PEDIGREE.md`) :
+
+> **473 matchs de grands tournois (2010-2026) · log-loss 0.9336 ·
+> précision 57.3% · Brier 0.5509** — hasard : 1.0986 / 33.3% ; le marché
+> mondial des cotes tourne à ~0.93-0.95 / ~57%. Et la **calibration** est
+> droite : quand le démon annonce 45%, ça arrive 45.7% du temps ; quand il
+> est sûr à ≥60%, il a raison 73.6% du temps.
+
+Ce chiffre est affiché en permanence par `laplace verdict`, et la log-loss
+2026 en cours s'y agrège au fil du tournoi.
+
 | Coupe du Monde | Log-loss (vivant) | Log-loss (figé) | Hasard | Bon pronostic | Champion réel (rang Elo pré-tournoi) |
 |---|---|---|---|---|---|
 | 2014 | **0.905** | 0.943 | 1.099 | 60.9% | Allemagne (n°3) |

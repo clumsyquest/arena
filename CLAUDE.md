@@ -23,10 +23,15 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
   buts Dixon-Coles (`goals.py`) + cerveau attaque/défense (`teamdc.py`) fusionnés
   85/15 (`ensemble.py`), simulateur Monte-Carlo du vrai format 48 équipes,
   conditionné aux résultats réels déjà joués (`simulate.py`).
-- **Performance validée en marche avant sur 9 tournois 2010-2026 (473 matchs)** :
-  log-loss **0.9341**, précision 3-issues **57.9%** (mode vivant). Le marché
-  mondial fait ~0.93-0.95 / ~57%. C'est le niveau bookmaker, atteint sans
-  aucune donnée externe.
+- **LA PRÉCISION GLOBALE (chiffre canon, rejouable)** : `laplace pedigree`
+  rejoue les 9 tournois 2010-2026 en marche avant avec le moteur de prod →
+  **473 matchs · log-loss 0.9336 · précision 57.3% · Brier 0.5509**, registre
+  par match dans `prophecies/PEDIGREE.csv`, vitrine PEDIGREE.md (calibration
+  droite : annoncé 45% → arrivé 45.7% ; confiance ≥60% → 73.6% de réussite).
+  Le marché mondial fait ~0.93-0.95 / ~57% : niveau bookmaker sans donnée
+  externe. `laplace verdict` AFFICHE TOUJOURS ce panneau global + la log-loss
+  2026 en cours agrégée (le commandant y tient). Les 0.9341/57.9% cités
+  avant venaient de forge.py (historien seul) — le canon est le pedigree.
 - **Commandes** : `python -m laplace {simulate,today,match,groups,ratings,
   backtest,proof,market,adjust,seal,verdict,update}` — voir README.
 - **Le registre du duel — L'ARÈNE À 5** : `prophecies/` — sceaux quotidiens
