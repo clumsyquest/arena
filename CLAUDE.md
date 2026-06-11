@@ -19,19 +19,24 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
 
 ## Ce qui existe déjà (NE PAS reconstruire)
 
-- **Moteur v2** : Elo vivant recalculé depuis 1872 (`laplace/elo.py`) + modèle de
+- **Moteur v3** : Elo vivant recalculé depuis 1872 (`laplace/elo.py`) + modèle de
   buts Dixon-Coles (`goals.py`) + cerveau attaque/défense (`teamdc.py`) fusionnés
-  85/15 (`ensemble.py`), simulateur Monte-Carlo du vrai format 48 équipes,
-  conditionné aux résultats réels déjà joués (`simulate.py`).
+  85/15 (`ensemble.py`) + **LE CARTOGRAPHE** (`confed.py`, adopté le 11/06 :
+  biais inter-confédérations mesuré en marche avant sur 8 ans, κ=650 —
+  carte 2026 : CAF +61, UEFA +23, CONMEBOL +5, AFC −7, CONCACAF −40, OFC −181).
+  Simulateur Monte-Carlo du vrai format 48 équipes, conditionné aux résultats
+  réels déjà joués (`simulate.py`). ⚠ Les sceaux des 11-13/06 sont v2 (gravés
+  avant l'adoption) ; tout sceau à partir du 14/06 est v3 — le registre est la
+  biographie du démon, il évolue avec lui.
 - **LA PRÉCISION GLOBALE (chiffre canon, rejouable)** : `laplace pedigree`
   rejoue les 9 tournois 2010-2026 en marche avant avec le moteur de prod →
-  **473 matchs · log-loss 0.9336 · précision 57.3% · Brier 0.5509**, registre
-  par match dans `prophecies/PEDIGREE.csv`, vitrine PEDIGREE.md (calibration
-  droite : annoncé 45% → arrivé 45.7% ; confiance ≥60% → 73.6% de réussite).
+  **473 matchs · log-loss 0.9305 · précision 57.1% · Brier 0.5488** (v3),
+  registre par match dans `prophecies/PEDIGREE.csv`, vitrine PEDIGREE.md
+  (calibration droite : annoncé 45% → arrivé 45.0% ; confiance ≥60% → 73.9%).
   Le marché mondial fait ~0.93-0.95 / ~57% : niveau bookmaker sans donnée
   externe. `laplace verdict` AFFICHE TOUJOURS ce panneau global + la log-loss
-  2026 en cours agrégée (le commandant y tient). Les 0.9341/57.9% cités
-  avant venaient de forge.py (historien seul) — le canon est le pedigree.
+  2026 en cours agrégée (le commandant y tient). Historique des canons :
+  0.9341/57.9% (forge, historien seul) → 0.9336/57.3% (v2) → 0.9305/57.1% (v3).
 - **Commandes** : `python -m laplace {simulate,today,match,groups,ratings,
   backtest,proof,market,adjust,seal,verdict,update}` — voir README.
 - **Le registre du duel — L'ARÈNE À 5** : `prophecies/` — sceaux quotidiens
@@ -54,13 +59,23 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
 ## Les expériences DÉJÀ JUGÉES (ne les refais pas, les verdicts sont dans git)
 
 - ✅ Adopté : mode vivant (Elo mis à jour pendant le tournoi), fusion 85/15.
+- ✅ Adopté (11/06) : **le Cartographe** (H4 de `experiments/chasse.py`) —
+  seule survivante de la chasse aux surprises (11 hypothèses, 3 rounds).
 - ❌ Exécutés par les données : forme récente (3 méthodes), historique de
   confrontation (nuit !), jours de repos, modèle direct W/N/L ("le Juge"),
   calibrations température/boost de nuls, 20 alliages de constantes Elo
   (`experiments/forge.py`), mythe des spécialistes de tirs au but (49.8% sur
-  293 séances = hasard).
-- Conclusion cartographiée : **avec l'historique des scores seul, ~0.934/58%
-  est la frontière**. Les prochains points viennent d'INFORMATION NOUVELLE.
+  293 séances = hasard), et la chasse aux surprises (`experiments/chasse.py`) :
+  malédiction de l'ouverture, malédiction du champion, favori rassasié,
+  biscotto, élan du tombeur, chaos, David (séismes −0.035 mais global +0.002),
+  recalibration isotonique (surapprentissage d'époque), oser le nul.
+- Leçon des séismes (quantifiée) : 16 issues à p≤15% sur 473 ; la meilleure
+  hypothèse interne ne déplace Argentine–Arabie que de 3.9→4.2%. **Les
+  séismes ne vivent pas dans l'historique des scores : ils vivent dans
+  l'information nouvelle** (blessures, compos, dérive des cotes) → c'est le
+  travail de l'ÉCLAIREUR et du marché au registre.
+- Conclusion cartographiée : avec l'historique des scores seul, **0.9305/57%
+  est la nouvelle frontière** (le Cartographe a déplacé l'ancienne ~0.934).
 
 ## TES ORDRES DE MISSION (dans l'ordre, dès la session ouverte)
 
@@ -96,7 +111,8 @@ Prédire la **Coupe du Monde 2026** (11 juin – 19 juillet 2026, USA/Mexique/Ca
       retire-les quand le joueur revient (ex. Davies peut revenir au match 2
       ou 3 du Canada — re-vérifier !).
    d. `seal` (jour J, AVANT les matchs — grave SEAL pur + ÉCLAIREUR auto).
-   e. `seal --tournament -n 100000` (un point de plus sur la courbe du destin).
+   e. `seal --tournament -n 100000` (un point de plus sur la courbe du destin ;
+      dès le 12/06 c'est le moteur v3 — le saut du Cartographe se verra).
    f. Commit + push sur la branche de session. PAS de push intermédiaire
       pendant le travail : on pousse quand c'est du lourd (ordre du 11/06).
    ÉTAT au 11/06 09h30 UTC : sceaux 11+12+13/06 gravés (SEAL pur + ÉCLAIREUR

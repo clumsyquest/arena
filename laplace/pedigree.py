@@ -49,13 +49,19 @@ def replay(verbose=False):
         before = dates < t0
         goal_model = fit_goal_model(df[before], pre_h[before], pre_a[before])
         anatomiste = fit_teamdc(df[before], half_life=4.0, window_years=12.0)
+        # v3 — le Cartographe, recalculé avant chaque tournoi (marche avant)
+        from laplace.confed import CONF, confed_bias
+
+        bias = confed_bias(df[before], pre_h[before], pre_a[before], as_of=start)
         in_cup = ((df["tournament"] == name).to_numpy()
                   & (dates >= t0) & (dates <= t1))
         n_t = 0
         for i in np.flatnonzero(in_cup):
             row = df.iloc[i]
             h = 0 if row["neutral"] else 1
-            m_hist = goal_model.score_matrix(pre_h[i], pre_a[i], h, MAX_GOALS)
+            eh = pre_h[i] + bias.get(CONF.get(row["home_team"]), 0.0)
+            ea = pre_a[i] + bias.get(CONF.get(row["away_team"]), 0.0)
+            m_hist = goal_model.score_matrix(eh, ea, h, MAX_GOALS)
             try:
                 m_anat = anatomiste.score_matrix(
                     row["home_team"], row["away_team"], h, MAX_GOALS)

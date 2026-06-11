@@ -18,6 +18,12 @@ def build_oracle(as_of=None, verbose=False):
     """Assemble le démon complet : données -> Elo -> modèle de buts -> Oracle."""
     df = played(before=as_of)
     ratings, pre_home, pre_away = compute_elo(df, return_history=True)
+    # v3 — le Cartographe : biais inter-confédérations mesuré en marche avant
+    # (experiments/chasse.py), appliqué à la prédiction, jamais à l'ajustement.
+    from laplace.confed import apply_to_ratings as apply_confed
+    from laplace.confed import confed_bias
+
+    apply_confed(ratings, confed_bias(df, pre_home, pre_away, as_of=as_of))
     if as_of is None:  # les ajustements de l'éclaireur ne valent que pour le présent
         from laplace.scout import apply_to_ratings
 

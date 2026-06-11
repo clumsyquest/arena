@@ -79,6 +79,16 @@ testées en leave-one-out. Les données ont tranché :
 | Le Fiévreux (forme récente, demi-vie 15 mois) | ❌ écarté par les données | 0.9727 |
 | Le Juge (verdict direct W/N/L) | ❌ exécuté | 1.0168 |
 | Calibrations température / boost de nuls | ❌ ne transfèrent pas en LOO | — |
+| **Le Cartographe (v3)** — biais inter-confédérations mesuré en marche avant (`laplace/confed.py`, né de `experiments/chasse.py`) | ✅ **adopté : CDM 2014 −0.010, CDM 2018 −0.010, CDM 2022 −0.003** | **0.9305** |
+
+La chasse aux surprises (11 hypothèses, réglées 1994-2008 / jugées 2010-2026)
+a aussi exécuté : malédiction de l'ouverture, malédiction du champion, favori
+rassasié, biscotto, élan du tombeur, température du chaos, coefficient de
+David, recalibration isotonique, politique « oser le nul ». Les verdicts
+complets sont dans `experiments/chasse.py`. Leçon gravée : les séismes type
+Argentine–Arabie ne vivent pas dans l'historique des scores — ils vivent dans
+l'information nouvelle (blessures, compos, cotes), d'où l'Éclaireur et le
+Voleur de Cerveaux.
 
 Le moteur v2 = **fusion log-linéaire Historien 85% + Anatomiste 15%, en mode
 vivant**, et le simulateur **grave les résultats réels** au fur et à mesure du
@@ -95,11 +105,11 @@ voir **que** les matchs antérieurs à chaque tournoi, puis il prédit tout.
 (`python -m laplace pedigree`, registre complet dans `prophecies/PEDIGREE.csv`,
 vitrine dans `prophecies/PEDIGREE.md`) :
 
-> **473 matchs de grands tournois (2010-2026) · log-loss 0.9336 ·
-> précision 57.3% · Brier 0.5509** — hasard : 1.0986 / 33.3% ; le marché
-> mondial des cotes tourne à ~0.93-0.95 / ~57%. Et la **calibration** est
-> droite : quand le démon annonce 45%, ça arrive 45.7% du temps ; quand il
-> est sûr à ≥60%, il a raison 73.6% du temps.
+> **473 matchs de grands tournois (2010-2026) · log-loss 0.9305 ·
+> précision 57.1% · Brier 0.5488** (moteur v3 avec le Cartographe) — hasard :
+> 1.0986 / 33.3% ; le marché mondial des cotes tourne à ~0.93-0.95 / ~57%.
+> Et la **calibration** est droite : quand le démon annonce 45%, ça arrive
+> 45.0% du temps ; quand il est sûr à ≥60%, il a raison 73.9% du temps.
 
 Ce chiffre est affiché en permanence par `laplace verdict`, et la log-loss
 2026 en cours s'y agrège au fil du tournoi.
